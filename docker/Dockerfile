@@ -1,4 +1,4 @@
-FROM alpine
+FROM alpine:3.12
 ARG REPO=gitee
 ARG REPO_URL=$REPO.com
 ARG JD_SHELL=jd_shell
@@ -28,6 +28,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
                              coreutils \
                              git \
                              wget \
+                             curl \
                              nano \
                              tzdata \
                              perl \

@@ -42,7 +42,7 @@ function Update_Cron {
     for ((i=1; i<${#RanHourArray[*]}; i++)); do
       RanHour="${RanHour},${RanHourArray[i]}"
     done
-    perl -i -pe "s|.+(bash git_pull.+)|${RanMin} ${RanHour} \* \* \* sleep ${RanSleep} && \1|" ${ListCron}
+    perl -i -pe "s|.+(bash.+git_pull.+log.*)|${RanMin} ${RanHour} \* \* \* sleep ${RanSleep} && \1|" ${ListCron}
     crontab ${ListCron}
   fi
 }
@@ -73,6 +73,14 @@ function Git_PullScripts {
   ExitStatusScripts=$?
   git reset --hard origin/master
   echo
+}
+
+## 更新docker-entrypoint
+function Update_Entrypoint {
+  if [[ ${JD_DIR} ]] && [[ $(cat ${ShellDir}/docker/docker-entrypoint.sh) != $(cat /usr/local/bin/docker-entrypoint.sh) ]]; then
+    cp -f ${ShellDir}/docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+    chmod 777 /usr/local/bin/docker-entrypoint.sh
+  fi
 }
 
 ## 用户数量UserSum
@@ -321,9 +329,11 @@ fi
 echo -e "\nJS脚本目录：${ScriptsDir}\n"
 echo -e "--------------------------------------------------------------\n"
 
-## 更新shell，更新crontab
+## 更新shell，更新docker-entrypoint, crontab
 Git_PullShell
+Update_Entrypoint
 [[ ${ExitStatusShell} -eq 0 ]] && echo -e "更新shell成功...\n" || echo -e "更新shell失败，请检查原因...\n"
+cp -f ${FileConfSample} ${ConfigDir}/config.sh.sample
 [[ $(date "+%-H") -le 2 ]] && Update_Cron
 
 ## 克隆或更新js脚本
