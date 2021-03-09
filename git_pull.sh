@@ -26,10 +26,17 @@ isTermux=${ANDROID_RUNTIME_ROOT}${ANDROID_ROOT}
 ShellURL=${JD_SHELL_URL:-git@gitee.com:evine/jd_shell.git}
 ScriptsURL=${JD_SCRIPTS_URL:-git@gitee.com:lxk0301/jd_scripts.git}
 
+## 导入配置文件
+function Import_Conf {
+  if [ -f ${FileConf} ]; then
+    . ${FileConf}
+  fi
+}
+
 ## 更新crontab，gitee服务器同一时间限制5个链接，因此每个人更新代码必须错开时间，每次执行git_pull随机生成。
 ## 每天次数随机，更新时间随机，更新秒数随机，至少6次，至多12次，大部分为8-10次，符合正态分布。
 function Update_Cron {
-  if [ -f ${ListCron} ]; then
+  if [[ $(date "+%-H") -le 2 ]] && [ -f ${ListCron} ]; then
     RanMin=$((${RANDOM} % 60))
     RanSleep=$((${RANDOM} % 56))
     RanHourArray[0]=$((${RANDOM} % 3))
@@ -73,6 +80,18 @@ function Git_PullShell {
   echo
 }
 
+## 更新shell成功后的操作
+function Git_PullShellNext {
+  if [[ ${ExitStatusShell} -eq 0 ]]; then
+    echo -e "更新shell成功...\n"
+    Update_Entrypoint
+    cp -f ${FileConfSample} ${ConfigDir}/config.sh.sample
+    [ -d ${ScriptsDir}/node_modules ] && Notify_Version
+  else
+    echo -e "更新shell失败，请检查原因...\n"
+  fi
+}
+
 ## 克隆scripts
 function Git_CloneScripts {
   echo -e "克隆scripts...\n"
@@ -108,33 +127,6 @@ function Count_UserSum {
     [[ ${CookieTmp} ]] && UserSum=$i || break
     let i++
   done
-}
-
-## 把config.sh中提供的所有账户的PIN附加在jd_joy_run.js中，让各账户相互进行宠汪汪赛跑助力
-function Change_JoyRunPins {
-  j=${UserSum}
-  PinALL=""
-  while [[ $j -ge 1 ]]
-  do
-    Tmp=Cookie$j
-    CookieTemp=${!Tmp}
-    PinTemp=$(echo ${CookieTemp} | perl -pe "{s|.*pt_pin=(.+);|\1|; s|%|\\\x|g}")
-    PinTempFormat=$(printf ${PinTemp})
-    PinALL="${PinTempFormat},${PinALL}"
-    let j--
-  done
-  perl -i -pe "{s|(let invite_pins = \[\')(.+\'\];?)|\1${PinALL}\2|; s|(let run_pins = \[\')(.+\'\];?)|\1${PinALL}\2|}" ${ScriptsDir}/jd_joy_run.js
-}
-
-## 修改lxk0301大佬js文件的函数汇总
-function Change_ALL {
-  if [ -f ${FileConf} ]; then
-    . ${FileConf}
-    if [ -n "${Cookie1}" ]; then
-      Count_UserSum
-      # Change_JoyRunPins
-    fi
-  fi
 }
 
 ## 检测文件：LXK9301/jd_scripts 仓库中的 docker/crontab_list.sh
@@ -345,16 +337,12 @@ fi
 echo -e "\nJS脚本目录：${ScriptsDir}\n"
 echo -e "--------------------------------------------------------------\n"
 
-## 更新shell，并处理相关文件
-[[ $(date "+%-H") -le 2 ]] && Update_Cron
-Reset_RepoUrl && Git_PullShell
-if [[ ${ExitStatusShell} -eq 0 ]]; then
-  echo -e "更新shell成功...\n"
-  Update_Entrypoint
-  cp -f ${FileConfSample} ${ConfigDir}/config.sh.sample
-else
-  echo -e "更新shell失败，请检查原因...\n"
-fi
+## 导入配置，更新cron，设置url，更新shell，复制sample，复制entrypoint，发送新配置通知
+Import_Conf
+Update_Cron
+Reset_RepoUrl
+Git_PullShell
+Git_PullShellNext
 
 ## 克隆或更新js脚本
 [ -f ${ScriptsDir}/package.json ] && PackageListOld=$(cat ${ScriptsDir}/package.json)
@@ -364,8 +352,6 @@ fi
 if [[ ${ExitStatusScripts} -eq 0 ]]
 then
   echo -e "更新scripts成功...\n"
-  Change_ALL
-  [ -d ${ScriptsDir}/node_modules ] && Notify_Version
   Diff_Cron
   Npm_Install
   Output_ListJsAdd
@@ -374,7 +360,6 @@ then
   Add_Cron
 else
   echo -e "更新scripts失败，请检查原因...\n"
-  Change_ALL
 fi
 
 ## 调用用户自定义的diy.sh
