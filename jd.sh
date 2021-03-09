@@ -45,15 +45,36 @@ function Count_UserSum {
 ## 组合Cookie和互助码子程序
 function Combin_Sub {
   CombinAll=""
-  for ((i=1; i<=${UserSum}; i++)); do
-    for num in ${TempBlockCookie}; do
-      [[ $i -eq $num ]] && continue 2
+  if [[ ${AutoHelpOther} == true ]] && [[ $1 == ForOther* ]]; then
+
+    ForOtherAll=""
+    MyName=$(echo $1 | perl -pe "s|ForOther|My|")
+
+    for ((m=1; m<=${UserSum}; m++)); do
+      TmpA=${MyName}$m
+      TmpB=${!TmpA}
+      ForOtherAll="${ForOtherAll}@${TmpB}"
     done
-    Tmp1=$1$i
-    Tmp2=${!Tmp1}
-    CombinAll="${CombinAll}&${Tmp2}"
-  done
-  echo ${CombinAll} | perl -pe "{s|^&||; s|^@+||; s|&@|&|g; s|@+|@|g}"
+    
+    for ((n=1; n<=${UserSum}; n++)); do
+      for num in ${TempBlockCookie}; do
+        [[ $n -eq $num ]] && continue 2
+      done
+      CombinAll="${CombinAll}&${ForOtherAll}"
+    done
+
+  else
+    for ((i=1; i<=${UserSum}; i++)); do
+      for num in ${TempBlockCookie}; do
+        [[ $i -eq $num ]] && continue 2
+      done
+      Tmp1=$1$i
+      Tmp2=${!Tmp1}
+      CombinAll="${CombinAll}&${Tmp2}"
+    done
+  fi
+
+  echo ${CombinAll} | perl -pe "{s|^&||; s|^@+||; s|&@|&|g; s|@+&|&|g; s|@+|@|g; s|@+$||}"
 }
 
 ## 组合Cookie、Token与互助码
@@ -148,7 +169,7 @@ function Run_HangUp {
     if type pm2 >/dev/null 2>&1; then
       pm2 stop ${js}.js 2>/dev/null
       pm2 flush
-      pm2 start -a ${js}.js --watch --ignore-watch="node_modules" --name="${js}"
+      pm2 start -a ${js}.js --watch "${ScriptsDir}/${js}.js" --name="${js}"
     else
       Run_Nohup >/dev/null 2>&1
     fi
@@ -191,7 +212,7 @@ function Run_Normal {
     LogFile="${LogDir}/${FileName}/${LogTime}.log"
     [ ! -d ${LogDir}/${FileName} ] && mkdir -p ${LogDir}/${FileName}
     cd ${WhichDir}
-    node ${FileName}.js | tee ${LogFile}
+    node ${FileName}.js 2>&1 | tee ${LogFile}
   else
     echo -e "\n在${ScriptsDir}、${ScriptsDir}/backUp、${ConfigDir}三个目录下均未检测到 $1 脚本的存在，请确认...\n"
     Help
