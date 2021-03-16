@@ -215,7 +215,9 @@ function Run_HangUp {
   HangUpJs="jd_crazy_joy_coin"
   cd ${ScriptsDir}
   for js in ${HangUpJs}; do
-    Import_Conf ${js} && Set_Env
+    Import_Conf ${js}
+    Count_UserSum
+    Set_Env all
     if type pm2 >/dev/null 2>&1; then
       pm2 stop ${js}.js 2>/dev/null
       pm2 flush
@@ -290,6 +292,7 @@ function Run_Concurrent {
   then
     [ ! -d ${LogDir}/${FileName} ] && mkdir -p ${LogDir}/${FileName}
     LogTime=$(date "+%Y-%m-%d-%H-%M-%S")
+    echo -e "\n各账号间已经在后台开始并发执行，前台不输入日志，日志直接写入文件中。\n\n并发执行不会释放进程，如果是容器，请经常重启容器，如果是物理机，请经常杀多余的node进程。\n"
     for ((user_num=1; user_num<=${UserSum}; user_num++)); do
       for num in ${TempBlockCookie}; do
         [[ $user_num -eq $num ]] && continue 2
